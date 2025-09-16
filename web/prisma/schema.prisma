@@ -1,0 +1,148 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Roles in the system
+enum Role {
+  STUDENT
+  COUNSELLOR
+  ADMIN
+}
+
+// User accounts for the application
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  rollNo       String   @unique
+  email        String   @unique
+  emailVerified DateTime?
+  passwordHash String
+  role         Role     @default(STUDENT)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Student-specific fields (used when role = STUDENT)
+  gender       Gender?
+  instituteName String?
+  degree       String?
+  age          Int?
+
+  // Counsellor-specific fields (used when role = COUNSELLOR)
+  employeeId   String?  @unique
+  phone        String?
+
+  // NextAuth relations
+  accounts     Account[]
+  sessions     Session[]
+
+  // Scheduler relations
+  availabilities      Availability[]
+  meetingsAsStudent   Meeting[] @relation("StudentMeetings")
+  meetingsAsCounsellor Meeting[] @relation("CounsellorMeetings")
+
+  // Assignment relations: students assigned to a counsellor
+  counsellor        User?   @relation("StudentCounsellor", fields: [counsellorId], references: [id])
+  counsellorId      String?
+  students          User[]  @relation("StudentCounsellor")
+}
+
+
+// Gender options
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+// Counsellor availability slots
+model Availability {
+  id            String   @id @default(cuid())
+  counsellor    User     @relation(fields: [counsellorId], references: [id])
+  counsellorId  String
+  startTime     DateTime
+  endTime       DateTime
+  isBooked      Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([counsellorId, startTime])
+}
+
+// Meeting bookings between student and counsellor
+model Meeting {
+  id            String   @id @default(cuid())
+  student       User     @relation("StudentMeetings", fields: [studentId], references: [id])
+  studentId     String
+  counsellor    User     @relation("CounsellorMeetings", fields: [counsellorId], references: [id])
+  counsellorId  String
+  startTime     DateTime
+  endTime       DateTime
+  reason        String
+  status        MeetingStatus @default(PENDING)
+  meetingLink   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([studentId, counsellorId, startTime])
+}
+
+enum MeetingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+// NextAuth Account model (required when using Prisma Adapter)
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?  @db.Text
+  access_token      String?  @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?  @db.Text
+  session_state     String?
+  oauth_token_secret String?
+  oauth_token        String?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+// NextAuth Session model (required when using Prisma Adapter)
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// NextAuth VerificationToken model (required when using Prisma Adapter)
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}

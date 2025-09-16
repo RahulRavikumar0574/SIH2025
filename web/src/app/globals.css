@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+:root {
+  /* Light mode base */
+  --background: #FAFAFA; /* Snow White */
+  --foreground: #1a1a1a;
+
+  /* Brand palette */
+  --primary: #3F51B5;    /* Deep Indigo */
+  --secondary: #26C6DA;  /* Turquoise */
+  --accent: #FF7043;     /* Sunset Coral */
+  --surface: #F4F3FF;    /* Soft Lavender */
+
+  /* Status */
+  --success: #66BB6A;    /* Mint Green */
+  --alert: #FFA726;      /* Amber */
+  --danger: #E53935;     /* Crimson */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-accent: var(--accent);
+  --color-surface: var(--surface);
+  --color-success: var(--success);
+  --color-alert: var(--alert);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #121212; /* Deep charcoal */
+    --foreground: #EDEDED;
+
+    /* Keep brand colors; optionally slightly tuned for dark */
+    --primary: #5865d6;   /* Slightly brighter indigo for contrast */
+    --secondary: #2fd4e8; /* Turquoise pop on dark */
+    --accent: #ff8058;    /* Warm coral */
+    --surface: #1A1A1A;   /* Dark surface */
+  }
+}
+
+/* Explicit theme switching via data-theme attribute */
+:root[data-theme="light"] {
+  --background: #FAFAFA;
+  --foreground: #1a1a1a;
+  --primary: #3F51B5;
+  --secondary: #26C6DA;
+  --accent: #FF7043;
+  --surface: #F4F3FF;
+  --success: #66BB6A;
+  --alert: #FFA726;
+  --danger: #E53935;
+}
+
+:root[data-theme="dark"] {
+  --background: #121212;
+  --foreground: #EDEDED;
+  --primary: #5865d6;
+  --secondary: #2fd4e8;
+  --accent: #ff8058;
+  --surface: #1A1A1A;
+  --success: #66BB6A;
+  --alert: #FFA726;
+  --danger: #E53935;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
