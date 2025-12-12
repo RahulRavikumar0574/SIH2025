@@ -1,0 +1,73 @@
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/auth";
+import { prisma } from "@/lib/prisma";
+
+// GET /api/admin/records/export
+// Exports all Meeting records as CSV with student & counsellor info
+export async function GET() {
+  const session = await getServerSession(authOptions);
+  const role = (session?.user as any)?.role;
+  if (!session || role !== "ADMIN") {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+
+  try {
+    const rows = (await prisma.$queryRawUnsafe(
+      `SELECT m."id", m."studentId", m."counsellorId", m."startTime", m."endTime", m."reason", m."status", m."createdAt",
+              (SELECT u."name"  FROM "User" u WHERE u."id" = m."studentId")   AS "studentName",
+              (SELECT u."email" FROM "User" u WHERE u."id" = m."studentId")   AS "studentEmail",
+              (SELECT u."name"  FROM "User" u WHERE u."id" = m."counsellorId") AS "counsellorName",
+              (SELECT u."email" FROM "User" u WHERE u."id" = m."counsellorId") AS "counsellorEmail"
+         FROM "Meeting" m
+         ORDER BY m."startTime" DESC`
+    )) as Array<{
+      id: string;
+      studentId: string; counsellorId: string;
+      startTime: Date; endTime: Date; reason: string | null; status: string; createdAt: Date;
+      studentName: string | null; studentEmail: string | null;
+      counsellorName: string | null; counsellorEmail: string | null;
+    }>;
+
+    const header = [
+      'meeting_id','student_email','counsellor_id','counsellor_name','counsellor_email','start_time','end_time','reason','status','created_at'
+    ];
+
+    function esc(v: any): string {
+      if (v === null || v === undefined) return '';
+      const s = String(v).replace(/"/g, '""');
+      if (/[",\n]/.test(s)) return '"' + s + '"';
+      return s;
+    }
+
+    const lines: string[] = [];
+    lines.push(header.join(','));
+    for (const r of rows) {
+      lines.push([
+        esc(r.id),
+        esc(r.studentEmail ?? ''),
+        esc(r.counsellorId),
+        esc(r.counsellorName ?? ''),
+        esc(r.counsellorEmail ?? ''),
+        esc(r.startTime?.toISOString?.() ?? r.startTime),
+        esc(r.endTime?.toISOString?.() ?? r.endTime),
+        esc(r.reason ?? ''),
+        esc(r.status),
+        esc(r.createdAt?.toISOString?.() ?? r.createdAt),
+      ].join(','));
+    }
+
+    const csv = lines.join('\n');
+    const filename = `meetings-export-${new Date().toISOString().slice(0,10)}.csv`;
+    return new NextResponse(csv, {
+      status: 200,
+      headers: {
+        'content-type': 'text/csv; charset=utf-8',
+        'content-disposition': `attachment; filename="${filename}"`,
+        'cache-control': 'no-store',
+      },
+    });
+  } catch (e: any) {
+    return new NextResponse('Failed to export CSV', { status: 500 });
+  }
+}

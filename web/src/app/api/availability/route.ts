@@ -16,20 +16,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "counsellorId is required" }, { status: 400 });
     }
 
-    const fromDate = from ? new Date(from) : undefined;
-    const toDate = to ? new Date(to) : undefined;
+    const clauses: string[] = ['"counsellorId" = $1'];
+    const params: any[] = [counsellorId];
+    if (from) { clauses.push('"startTime" >= $' + (params.length + 1)); params.push(new Date(from)); }
+    if (to) { clauses.push('"startTime" <= $' + (params.length + 1)); params.push(new Date(to)); }
 
-    const where: any = { counsellorId, isBooked: false };
-    if (fromDate || toDate) {
-      where.startTime = {};
-      if (fromDate) where.startTime.gte = fromDate;
-      if (toDate) where.startTime.lte = toDate;
-    }
-
-    const slots = await prisma.availability.findMany({
-      where,
-      orderBy: { startTime: "asc" },
-    });
+    const sql = `SELECT "id","counsellorId","startTime","endTime" FROM "Availability"
+                 WHERE ${clauses.join(" AND ")}
+                 ORDER BY "startTime" ASC`;
+    const slots = (await prisma.$queryRawUnsafe(sql, ...params)) as Array<{
+      id: string; counsellorId: string; startTime: string; endTime: string;
+    }>;
 
     return NextResponse.json({ slots });
   } catch (err: any) {
@@ -43,9 +40,11 @@ export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const userId = (session.user as any)?.id as string | undefined;
     const role = (session.user as any)?.role as string | undefined;
-    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const email = (session.user as any)?.email as string | undefined;
+    if (!email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const me = await prisma.user.findUnique({ where: { email: email.toLowerCase() }, select: { id: true, role: true } });
+    if (!me) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     if (role !== "COUNSELLOR") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const body = await req.json();
@@ -54,15 +53,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "slots array required" }, { status: 400 });
     }
 
-    // Create slots; simple createMany, no overlap validation for now
-    const data = slots.map((s) => ({
-      id: randomUUID(),
-      counsellorId: userId,
-      startTime: new Date(s.startTime),
-      endTime: new Date(s.endTime),
-    }));
-
-    await prisma.availability.createMany({ data });
+    // Create slots via raw SQL; no overlap validation for now
+    for (const s of slots) {
+      if (!s?.startTime || !s?.endTime) continue;
+      const id = randomUUID();
+      await prisma.$executeRawUnsafe(
+        'INSERT INTO "Availability" ("id","counsellorId","startTime","endTime") VALUES ($1,$2,$3,$4)',
+        id,
+        me.id,
+        new Date(s.startTime),
+        new Date(s.endTime)
+      );
+    }
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error("/api/availability POST error", err);

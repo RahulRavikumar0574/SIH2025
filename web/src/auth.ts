@@ -49,6 +49,24 @@ export const authOptions: NextAuthOptions = {
         return { id: user.id, name: user.name, email: user.email, role: user.role } as any;
       },
     }),
+    // Admin login
+    Credentials({
+      id: "admin-credentials",
+      name: "Admin Credentials",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null;
+        const email = credentials.email.toLowerCase();
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user || user.role !== "ADMIN") return null;
+        const valid = await bcrypt.compare(credentials.password, user.passwordHash);
+        if (!valid) return null;
+        return { id: user.id, name: user.name, email: user.email, role: user.role } as any;
+      },
+    }),
   ],
   pages: {
     signIn: "/login",

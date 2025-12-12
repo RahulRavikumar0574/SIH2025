@@ -10,15 +10,33 @@ type Slot = {
   endTime: string;
 };
 
+type Assigned = { id: string; name: string | null; email: string } | null;
+
 export default function SchedulerPage() {
   const router = useRouter();
   const [counsellorId, setCounsellorId] = useState("");
+  const [counsellor, setCounsellor] = useState<Assigned>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [reason, setReason] = useState("");
   const [selectedSlotId, setSelectedSlotId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Auto-detect assigned counsellor for the logged-in student
+  useEffect(() => {
+    const loadAssigned = async () => {
+      try {
+        const res = await fetch("/api/assignments", { cache: "no-store" });
+        const data = await res.json();
+        if (res.ok && data.counsellor?.id) {
+          setCounsellorId(data.counsellor.id);
+          setCounsellor({ id: data.counsellor.id, name: data.counsellor.name ?? null, email: data.counsellor.email });
+        }
+      } catch {}
+    };
+    loadAssigned();
+  }, []);
 
   useEffect(() => {
     const fetchSlots = async () => {
@@ -78,14 +96,23 @@ export default function SchedulerPage() {
       <p className="text-sm text-[var(--color-foreground)]/70">Book a session with your counsellor.</p>
 
       <div className="space-y-4">
-        <div>
-          <label className="block text-sm mb-1">Counsellor ID</label>
-          <input
-            className="w-full border rounded px-3 py-2 bg-white/80 dark:bg-black/20"
-            value={counsellorId}
-            onChange={(e) => setCounsellorId(e.target.value)}
-            placeholder="Enter your counsellor's ID"
-          />
+        <div className="grid sm:grid-cols-2 gap-3 items-end">
+          <div>
+            <label className="block text-sm mb-1">Assigned counsellor</label>
+            <input
+              className="w-full border rounded px-3 py-2 bg-white/80 dark:bg-black/20"
+              value={counsellor ? `${counsellor.name || counsellor.email} (${counsellor.id})` : "Detecting..."}
+              readOnly
+            />
+          </div>
+          <div>
+            <label className="block text-sm mb-1">Counsellor ID</label>
+            <input
+              className="w-full border rounded px-3 py-2 bg-white/60 dark:bg-black/20"
+              value={counsellorId}
+              readOnly
+            />
+          </div>
         </div>
 
         <div>

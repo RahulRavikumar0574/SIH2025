@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems = [
-  { label: "Profile", href: "/counsellor/profile" },
+  { label: "Edit Profile", href: "/counsellor/profile" },
   { label: "All Student List", href: "/counsellor/students" },
   { label: "Student Session Data", href: "/counsellor/student-data" },
   { label: "Chats", href: "/counsellor/chats" },

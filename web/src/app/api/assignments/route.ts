@@ -16,13 +16,20 @@ export async function GET() {
 
   try {
     if (me.role === "STUDENT") {
-      const assign = await (prisma as any).assignment?.findFirst?.({ where: { studentId: me.id }, select: { counsellorId: true } });
+      const rows = (await prisma.$queryRawUnsafe(
+        'SELECT "counsellorId" FROM "Assignment" WHERE "studentId" = $1 LIMIT 1',
+        me.id
+      )) as Array<{ counsellorId: string }>;
+      const assign = rows?.[0];
       if (!assign) return NextResponse.json({ counsellor: null });
       const counsellor = await prisma.user.findUnique({ where: { id: assign.counsellorId }, select: { id: true, name: true, email: true, rollNo: true, instituteName: true } });
       return NextResponse.json({ counsellor });
     }
     if (me.role === "COUNSELLOR") {
-      const assigns = await (prisma as any).assignment?.findMany?.({ where: { counsellorId: me.id }, select: { studentId: true } });
+      const assigns = (await prisma.$queryRawUnsafe(
+        'SELECT "studentId" FROM "Assignment" WHERE "counsellorId" = $1',
+        me.id
+      )) as Array<{ studentId: string }>;
       const students: any[] = [];
       for (const a of assigns || []) {
         const s = await prisma.user.findUnique({ where: { id: a.studentId }, select: { id: true, name: true, email: true, rollNo: true, instituteName: true } });

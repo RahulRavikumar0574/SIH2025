@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 type Student = { id: string; name: string | null; email: string; rollNo: string; instituteName?: string | null };
 
@@ -36,27 +37,29 @@ export default function CounsellorStudentsPage() {
       ) : students.length === 0 ? (
         <p className="text-sm">No assigned students yet.</p>
       ) : (
-        <div className="overflow-x-auto rounded border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left border-b">
-                <th className="py-2 px-3">Name</th>
-                <th className="py-2 px-3">Email</th>
-                <th className="py-2 px-3">Roll No</th>
-                <th className="py-2 px-3">Institute</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.map((s) => (
-                <tr key={s.id} className="border-b last:border-0">
-                  <td className="py-2 px-3">{s.name || "—"}</td>
-                  <td className="py-2 px-3">{s.email}</td>
-                  <td className="py-2 px-3">{s.rollNo}</td>
-                  <td className="py-2 px-3">{s.instituteName || "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {students.map((s) => (
+            <div key={s.id} className="rounded-xl bg-[var(--color-surface)] border p-4 shadow-sm flex flex-col gap-3">
+              <div>
+                <div className="text-base font-semibold">{s.name || s.email}</div>
+                <div className="text-xs text-[var(--color-foreground)]/80">{s.email}</div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="p-2 border rounded">
+                  <div className="opacity-70 text-xs">Roll No</div>
+                  <div className="font-medium break-all">{s.rollNo}</div>
+                </div>
+                <div className="p-2 border rounded">
+                  <div className="opacity-70 text-xs">Institute</div>
+                  <div className="font-medium">{s.instituteName || "—"}</div>
+                </div>
+              </div>
+              <div className="mt-auto flex gap-2">
+                <Link href={`/counsellor/chats?sid=${s.id}`} className="px-3 py-2 rounded bg-[var(--color-primary)] text-white text-sm">Message</Link>
+                <Link href={`/counsellor/student-data?sid=${s.id}`} className="px-3 py-2 rounded border text-sm">View Data</Link>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -4,6 +4,11 @@ import { authOptions } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { randomUUID } from "crypto";
 
+// OPTIONS: handle CORS/preflight gracefully
+export async function OPTIONS() {
+  return NextResponse.json({}, { status: 200 });
+}
+
 // GET /api/chat/messages?conversationId=...
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -12,12 +17,11 @@ export async function GET(req: Request) {
   const conversationId = searchParams.get("conversationId");
   if (!conversationId) return NextResponse.json({ items: [] });
   try {
-    const items = await (prisma as any).message?.findMany?.({
-      where: { conversationId },
-      orderBy: { createdAt: "asc" },
-      select: { id: true, conversationId: true, senderId: true, text: true, createdAt: true },
-    });
-    return NextResponse.json({ items: items ?? [] });
+    const items = (await prisma.$queryRawUnsafe(
+      'SELECT "id","conversationId","senderId","text","createdAt" FROM "Message" WHERE "conversationId" = $1 ORDER BY "createdAt" ASC',
+      conversationId
+    )) as Array<{ id: string; conversationId: string; senderId: string; text: string; createdAt: string }>;
+    return NextResponse.json({ items: items || [] });
   } catch (e) {
     return NextResponse.json({ items: [] });
   }
@@ -36,16 +40,28 @@ export async function POST(req: Request) {
 
   // Simple access check: user must be either the student or counsellor participant
   try {
-    const convo = await (prisma as any).conversation?.findUnique?.({ where: { id: conversationId }, select: { id: true, studentId: true, counsellorId: true } });
+    const rows = (await prisma.$queryRawUnsafe(
+      'SELECT "id","studentId","counsellorId" FROM "Conversation" WHERE "id" = $1 LIMIT 1',
+      conversationId
+    )) as Array<{ id: string; studentId: string; counsellorId: string }>;
+    const convo = rows?.[0];
     if (!convo) return NextResponse.json({ error: "Not found" }, { status: 404 });
     if (convo.studentId !== me.id && convo.counsellorId !== me.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    const msg = await (prisma as any).message?.create?.({
-      data: { id: randomUUID(), conversationId: convo.id, senderId: me.id, text: text.trim() },
-      select: { id: true, conversationId: true, senderId: true, text: true, createdAt: true },
-    });
-    return NextResponse.json({ message: msg });
+    const id = randomUUID();
+    await prisma.$executeRawUnsafe(
+      'INSERT INTO "Message" ("id","conversationId","senderId","text") VALUES ($1,$2,$3,$4)',
+      id,
+      convo.id,
+      me.id,
+      text.trim()
+    );
+    const out = (await prisma.$queryRawUnsafe(
+      'SELECT "id","conversationId","senderId","text","createdAt" FROM "Message" WHERE "id" = $1',
+      id
+    )) as Array<{ id: string; conversationId: string; senderId: string; text: string; createdAt: string }>;
+    return NextResponse.json({ message: out?.[0] });
   } catch (e) {
     return NextResponse.json({ error: "Failed to send" }, { status: 400 });
   }

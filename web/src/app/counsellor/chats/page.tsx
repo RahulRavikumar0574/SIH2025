@@ -17,12 +17,21 @@ export default function CounsellorChatsPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const listEndRef = useRef<HTMLDivElement | null>(null);
+  const [myId, setMyId] = useState<string | null>(null);
 
   // Load thread list for counsellor
   useEffect(() => {
     const load = async () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       setLoading(true);
       try {
+        // who am I
+        try {
+          const s = await fetch("/api/auth/session", { cache: "no-store" });
+          const sj = await s.json();
+          if (sj?.user?.id) setMyId(sj.user.id);
+        } catch {}
+
         const res = await fetch("/api/chat/threads", { cache: "no-store" });
         const data = await res.json();
         const items: Thread[] = Array.isArray(data.items) ? data.items : [];
@@ -33,7 +42,7 @@ export default function CounsellorChatsPage() {
       }
     };
     load();
-    const id = setInterval(load, 5000);
+    const id = setInterval(load, 30000); // 30s
     return () => clearInterval(id);
   }, []);
 
@@ -41,13 +50,14 @@ export default function CounsellorChatsPage() {
   useEffect(() => {
     if (!conversationId) return;
     const load = async () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       const res = await fetch(`/api/chat/messages?conversationId=${conversationId}`);
       const data = await res.json();
       setMessages(Array.isArray(data.items) ? data.items : []);
       setTimeout(() => listEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     };
     load();
-    const id = setInterval(load, 4000);
+    const id = setInterval(load, 15000); // 15s
     return () => clearInterval(id);
   }, [conversationId]);
 
@@ -106,12 +116,17 @@ export default function CounsellorChatsPage() {
             <div className="px-4 py-2 border-b bg-[var(--color-surface)] font-medium">{title}</div>
             <div className="flex-1 p-4 space-y-2 overflow-y-auto bg-white/40 dark:bg-black/10">
               {conversationId ? (
-                messages.map((m) => (
-                  <div key={m.id} className="max-w-[80%] bg-white dark:bg-black/30 rounded px-3 py-2 shadow text-sm">
-                    <div>{m.text}</div>
-                    <div className="text-[10px] opacity-60 mt-1">{m.createdAt ? new Date(m.createdAt).toLocaleString() : ""}</div>
-                  </div>
-                ))
+                messages.map((m) => {
+                  const mine = myId && m.senderId === myId;
+                  return (
+                    <div key={m.id} className={`w-full flex ${mine ? "justify-end" : "justify-start"}`}>
+                      <div className={`${mine ? "bg-teal-500 text-white" : "bg-white dark:bg-black/30 text-[var(--color-foreground)]"} max-w-[80%] rounded px-3 py-2 shadow text-sm`}>
+                        <div>{m.text}</div>
+                        <div className={`text-[10px] mt-1 ${mine ? "opacity-80" : "opacity-60"}`}>{m.createdAt ? new Date(m.createdAt).toLocaleString() : ""}</div>
+                      </div>
+                    </div>
+                  );
+                })
               ) : (
                 <p className="text-sm opacity-70">Select a student to view messages.</p>
               )}

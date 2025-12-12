@@ -19,7 +19,7 @@ export default function Home() {
     {
       title: "Admin Portal",
       desc: "Institute-wide insights and management",
-      href: "/login",
+      href: "/admin-login",
       cta: "Admin Login",
       accent: "bg-[var(--color-accent)]/10 border-[var(--color-accent)]/30",
     },

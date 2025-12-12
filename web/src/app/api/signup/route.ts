@@ -65,9 +65,13 @@ export async function POST(req: Request) {
       const counsellors = await prisma.user.findMany({ where: { role: "COUNSELLOR" }, select: { id: true } });
       if (counsellors.length > 0) {
         const random = counsellors[Math.floor(Math.random() * counsellors.length)];
-        await (prisma as any).assignment?.create?.({
-          data: { id: randomUUID(), studentId: created.id, counsellorId: random.id },
-        });
+        const id = randomUUID();
+        await prisma.$executeRawUnsafe(
+          'INSERT INTO "Assignment" ("id", "studentId", "counsellorId") VALUES ($1, $2, $3) ON CONFLICT ("studentId") DO NOTHING',
+          id,
+          created.id,
+          random.id
+        );
       }
     } catch {}
 

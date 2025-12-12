@@ -17,12 +17,20 @@ export default function MessagingPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const listEndRef = useRef<HTMLDivElement | null>(null);
+  const [myId, setMyId] = useState<string | null>(null);
 
   // Load single assigned thread for student
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
+        // who am I
+        try {
+          const s = await fetch("/api/auth/session", { cache: "no-store" });
+          const sj = await s.json();
+          if (sj?.user?.id) setMyId(sj.user.id);
+        } catch {}
+
         const res = await fetch("/api/chat/threads", { cache: "no-store" });
         const data = await res.json();
         const items: Thread[] = Array.isArray(data.items) ? data.items : [];
@@ -39,6 +47,7 @@ export default function MessagingPage() {
   useEffect(() => {
     if (!conversationId) return;
     const load = async () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
       const res = await fetch(`/api/chat/messages?conversationId=${conversationId}`);
       const data = await res.json();
       setMessages(Array.isArray(data.items) ? data.items : []);
@@ -46,7 +55,7 @@ export default function MessagingPage() {
       setTimeout(() => listEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     };
     load();
-    const id = setInterval(load, 5000);
+    const id = setInterval(load, 15000); // 15s instead of 5s
     return () => clearInterval(id);
   }, [conversationId]);
 
@@ -86,12 +95,18 @@ export default function MessagingPage() {
         <div className="flex-1 flex flex-col rounded border overflow-hidden">
           <div className="px-4 py-2 border-b bg-[var(--color-surface)] font-medium">Chat with {title}</div>
           <div className="flex-1 p-4 space-y-2 overflow-y-auto bg-white/40 dark:bg-black/10">
-            {messages.map((m) => (
-              <div key={m.id} className="max-w-[80%] bg-white dark:bg-black/30 rounded px-3 py-2 shadow text-sm">
-                <div>{m.text}</div>
-                <div className="text-[10px] opacity-60 mt-1">{m.createdAt ? new Date(m.createdAt).toLocaleString() : ""}</div>
-              </div>
-            ))}
+            {messages.map((m) => {
+              const mine = myId && m.senderId === myId;
+              return (
+                <div key={m.id} className={`w-full flex ${mine ? "justify-end" : "justify-start"}`}>
+                  <div className={`${mine ? "bg-teal-500 text-white" : "bg-white dark:bg-black/30 text-[var(--color-foreground)]"} max-w-[80%] rounded px-3 py-2 shadow text-sm`}
+                  >
+                    <div>{m.text}</div>
+                    <div className={`text-[10px] mt-1 ${mine ? "opacity-80" : "opacity-60"}`}>{m.createdAt ? new Date(m.createdAt).toLocaleString() : ""}</div>
+                  </div>
+                </div>
+              );
+            })}
             <div ref={listEndRef} />
           </div>
           <div className="p-3 flex gap-2 border-t bg-[var(--color-surface)]">

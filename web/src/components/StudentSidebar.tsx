@@ -3,10 +3,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems = [
-  { label: "Profile", href: "/dashboard/profile" },
+  { label: "Edit Profile", href: "/dashboard/profile" },
   { label: "Counsellor Details", href: "/dashboard/counsellor" },
   { label: "Upcoming Sessions", href: "/dashboard/sessions" },
-  { label: "Daily Monitoring Check", href: "/dashboard/check-in" },
+  
   { label: "Reports", href: "/dashboard/reports" },
   { label: "Meeting Scheduler", href: "/dashboard/scheduler" },
   { label: "Messaging", href: "/dashboard/messaging" },
